@@ -16,9 +16,14 @@ RUN apt-get update \
 COPY pyproject.toml README.md LICENSE ./
 COPY backend ./backend
 
+# Install torch+torchvision from the same CPU index. A follow-up force-reinstall
+# keeps them matched if `pip install .` pulls an incompatible PyPI torchvision.
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch \
-    && pip install --no-cache-dir .
+    && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+        torch torchvision \
+    && pip install --no-cache-dir . \
+    && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+        --force-reinstall --no-deps torch torchvision
 
 EXPOSE 7870
 
