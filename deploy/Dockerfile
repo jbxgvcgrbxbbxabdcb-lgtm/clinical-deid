@@ -5,7 +5,7 @@ FROM python:3.11-slim@sha256:e031123e3d85762b141ad1cbc56452ba69c6e722ebf2f042cc0
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    HF_HOME=/root/.cache/huggingface
+    HF_HOME=/root/.cache/openmed
 
 WORKDIR /app
 
@@ -15,6 +15,8 @@ RUN apt-get update \
 
 COPY pyproject.toml README.md LICENSE ./
 COPY backend ./backend
+COPY deploy/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Install torch+torchvision from the same CPU index. A follow-up force-reinstall
 # keeps them matched if `pip install .` pulls an incompatible PyPI torchvision.
@@ -30,4 +32,5 @@ EXPOSE 7870
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD curl -fsS http://127.0.0.1:7870/api/sample >/dev/null || exit 1
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "7870"]
