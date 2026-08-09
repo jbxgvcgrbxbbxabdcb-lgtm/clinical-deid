@@ -4,14 +4,18 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
     ports:
-      - "7870:7870"
+      # Bind to localhost only unless the API must be reachable from the LAN
+      - "127.0.0.1:7870:7870"
     environment:
       HF_TOKEN: ${HF_TOKEN:-}
       # openmed stores verified snapshots here (HF hub layout).
-      HF_HOME: /root/.cache/openmed
+      # Must match HF_HOME in the Dockerfile and the volume mount target below.
+      HF_HOME: /app/.cache/openmed
     volumes:
       # Persist / share the model cache with the host.
       # Pre-seed when Docker cannot reach Hugging Face:
       #   hf download OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1 \
       #     --cache-dir ~/.cache/openmed
-      - ${HOME}/.cache/openmed:/root/.cache/openmed
+      # :cached speeds up the many-small-files HF cache on macOS.
+      - ${HOME}/.cache/openmed:/app/.cache/openmed:cached
+    restart: unless-stopped

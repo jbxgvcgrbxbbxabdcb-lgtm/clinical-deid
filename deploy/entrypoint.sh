@@ -2,7 +2,7 @@
 # Prefer a warm openmed/HF cache; otherwise allow Hub download on first detect.
 set -eu
 
-CACHE="${HF_HOME:-/root/.cache/openmed}"
+CACHE="${HF_HOME:-/app/.cache/openmed}"
 MODEL_REPO="models--OpenMed--OpenMed-PII-SuperClinical-Small-44M-v1"
 SNAP_ROOT="${CACHE}/${MODEL_REPO}"
 

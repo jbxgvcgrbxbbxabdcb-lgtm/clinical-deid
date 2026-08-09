@@ -39,10 +39,10 @@ Startup logs indicate the mode:
 
 | File | Role |
 | --- | --- |
-| `Dockerfile` | Install Python deps + `openmed`; run uvicorn |
+| `Dockerfile` | Install Python deps + `openmed`; non-root user; run uvicorn |
 | `entrypoint.sh` | Offline if cache present, otherwise allow Hub download |
-| `docker-compose.yml` | API on `:7870`, bind-mounts `~/.cache/openmed` |
-| `.dockerignore` | Excludes `frontend/` and caches from build context |
+| `docker-compose.yml` | API on `127.0.0.1:7870`, bind-mounts `~/.cache/openmed` → `/app/.cache/openmed` |
+| `../.dockerignore` | At repo root (compose build context); excludes `frontend/` and caches |
 
 Example nginx snippet:
 

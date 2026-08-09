@@ -1,0 +1,38 @@
+# This file lives at the repo root on purpose: the compose build context is `..`
+# (the repo root), so Docker only reads .dockerignore from the context root.
+# The old deploy/.dockerignore was never being applied.
+
+# VCS / CI
+.git
+.github
+.gitignore
+
+# Python caches & tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+*.egg-info/
+
+# Local virtualenv — do NOT bake into the image
+.venv
+.venv*/
+
+# Frontend is served separately by nginx — keep it out of the backend image
+frontend/
+
+# Build artifacts
+dist/
+build/
+tmp/
+
+# Local model weights are pulled at runtime into HF_HOME — never into the build context
+**/*.pt
+**/*.bin
+**/*.safetensors
+**/*.onnx
+
+# Secrets / OS cruft
+.env
+.DS_Store

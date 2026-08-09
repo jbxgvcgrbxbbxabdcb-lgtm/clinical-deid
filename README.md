@@ -15,6 +15,8 @@ deploy/     Docker 镜像与 compose 配置
 
 ## 本地启动
 
+需要 Python ≥ 3.10、Node.js（前端）。
+
 ### 1. 后端
 
 在仓库根目录：
@@ -41,10 +43,17 @@ cd frontend && npm install && npm run dev
 
 ```bash
 docker compose -f deploy/docker-compose.yml up --build
-# → http://127.0.0.1:7870  （仅 API）
+# → http://127.0.0.1:7870  （仅 API，默认只绑定本机）
 ```
 
-可选环境变量 `HF_TOKEN`（拉取 Hugging Face 模型时使用）：
+首次 detect 会加载 `OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1`（约 550MB）。模型缓存挂载到宿主机 `~/.cache/openmed`；若 Docker 访问不了 Hugging Face，可先在宿主机预下载：
+
+```bash
+hf download OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1 \
+  --cache-dir ~/.cache/openmed
+```
+
+可选环境变量 `HF_TOKEN`（提高 Hub 限流额度）：
 
 ```bash
 HF_TOKEN=hf_xxx docker compose -f deploy/docker-compose.yml up --build
@@ -56,6 +65,8 @@ HF_TOKEN=hf_xxx docker compose -f deploy/docker-compose.yml up --build
 docker compose -f deploy/docker-compose.yml up --build -d
 docker compose -f deploy/docker-compose.yml down
 ```
+
+更细的缓存与 nginx 说明见 [`deploy/README.md`](deploy/README.md)。
 
 ## 许可证
 

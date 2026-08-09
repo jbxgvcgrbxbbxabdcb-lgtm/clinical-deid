@@ -5,7 +5,10 @@ FROM python:3.11-slim@sha256:e031123e3d85762b141ad1cbc56452ba69c6e722ebf2f042cc0
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    HF_HOME=/root/.cache/openmed
+    HF_HOME=/app/.cache/openmed
+
+# Run as a non-root user for least privilege (was: root)
+RUN groupadd --system app && useradd --system --gid app --create-home app
 
 WORKDIR /app
 
@@ -27,10 +30,15 @@ RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
         --force-reinstall --no-deps torch torchvision
 
+# Hand ownership of the app tree to the non-root user
+RUN chown -R app:app /app
+
 EXPOSE 7870
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
   CMD curl -fsS http://127.0.0.1:7870/api/sample >/dev/null || exit 1
+
+USER app
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "7870"]
