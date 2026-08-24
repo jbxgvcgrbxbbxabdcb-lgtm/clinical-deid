@@ -32,7 +32,7 @@
 ```text
 上传 PDF → extract_pdf（文本+span）→ deidentify（entities）→ project_text_spans（(page,bbox)）
                                                                       │
-                    SelectiveRedactionView ← verify_redacted_pdf ← write_redacted_pdf（PyMuPDF）
+        SelectiveRedactionView ← _verify_pdf_fidelity（PyMuPDF verifier） ← write_redacted_pdf（PyMuPDF）
                                                                       │
                                                     download（store.put_download 现有逻辑）
 ```
@@ -109,5 +109,5 @@
 ## 依赖与风险
 
 - 新增 `pymupdf`：与 pdfplumber 职责正交，无版本冲突
-- `verify_redacted_pdf` 为 fail-closed 校验：任何未覆盖区域都会拦下下载，避免文本层泄漏
+- 自建 `_verify_pdf_fidelity` 为 fail-closed 校验：任何未覆盖区域都会拦下下载，避免文本层泄漏
 - **verifier 不依赖 pdfplumber rects 解析**：改用 PyMuPDF `get_text("words", clip=)` + 区域像素 diff（实测通过），从根因避免与 openmed 的 pdfplumber 内核误判冲突
