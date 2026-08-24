@@ -3,6 +3,11 @@
 set -eu
 
 CACHE="${HF_HOME:-/app/.cache/openmed}"
+# The cache is pre-seeded with `hf download --cache-dir ~/.cache/openmed`,
+# which lays out models--OpenMed/... directly under that root (HF_HUB_CACHE
+# layout). Openmed resolves the model via HF_HUB_CACHE, so point it at the
+# same root; otherwise it looks under $HF_HOME/hub and finds nothing.
+export HF_HUB_CACHE="${CACHE}"
 MODEL_REPO="models--OpenMed--OpenMed-PII-SuperClinical-Small-44M-v1"
 SNAP_ROOT="${CACHE}/${MODEL_REPO}"
 

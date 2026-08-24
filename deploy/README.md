@@ -30,6 +30,12 @@ hf download OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1 \
   --cache-dir ~/.cache/openmed
 ```
 
+> The container mounts `~/.cache/openmed` to `/app/.cache/openmed` and sets
+> `HF_HOME` **and** `HF_HUB_CACHE` to that directory, so the `--cache-dir`
+> layout above is picked up directly. If your cache already exists but the
+> container reports "couldn't find them in the cached files", make sure the
+> bind mount target matches `HF_HUB_CACHE`.
+
 Optional: set `HF_TOKEN` in the environment (or a `.env` next to the compose file) for higher Hub rate limits.
 
 Startup logs indicate the mode:
