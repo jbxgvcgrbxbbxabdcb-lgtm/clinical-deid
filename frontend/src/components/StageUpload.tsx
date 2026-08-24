@@ -53,7 +53,7 @@ export function StageUpload({
       <div className="panel-head">
         <h2>Input</h2>
         <span className="panel-meta">
-          {inputMode === "paste" ? "Paste text" : ".docx · .md · paste"}
+          {inputMode === "paste" ? "Paste text" : ".pdf · .docx · .md · paste"}
         </span>
       </div>
       <div className="panel-body">
@@ -84,7 +84,7 @@ export function StageUpload({
               className={`dropzone${dragging ? " drag" : ""}`}
               tabIndex={0}
               role="button"
-              aria-label="Upload .docx or .md file"
+              aria-label="Upload .pdf, .docx or .md file"
               onClick={openPicker}
               onKeyDown={onKeyDown}
               onDragEnter={(e) => {
@@ -114,9 +114,10 @@ export function StageUpload({
                   <path d="M14 2v6h6M12 18v-6M9 15l3-3 3 3" />
                 </svg>
               </div>
-              <strong>Drop a .docx or .md here</strong>
-              <p>or click to browse — Word and Markdown notes</p>
+              <strong>Drop a .pdf, .docx or .md here</strong>
+              <p>or click to browse — PDF, Word and Markdown notes</p>
               <div className="accept-row" aria-hidden="true">
+                <span>.pdf</span>
                 <span>.docx</span>
                 <span>.md</span>
               </div>
@@ -131,7 +132,7 @@ export function StageUpload({
             <input
               ref={fileRef}
               type="file"
-              accept=".docx,.md,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              accept=".pdf,.docx,.md,application/pdf,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               hidden
               onChange={(e) => {
                 const f = e.target.files?.[0];

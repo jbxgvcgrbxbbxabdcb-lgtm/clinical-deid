@@ -9,7 +9,11 @@ from typing import Any
 
 from openmed import deidentify
 
-from backend.deid.constants import DEIDENTIFICATION_METHODS, REPLACE_SEED
+from backend.deid.constants import (
+    DEIDENTIFICATION_METHODS,
+    PDF_SCANNED_HINT,
+    REPLACE_SEED,
+)
 from backend.deid.models import (
     ReviewEntity,
     ReviewView,
@@ -291,4 +295,174 @@ def apply_selected_docx_redaction(
         deidentified_text=selective.deidentified_text,
         applied_entities=selective.applied_entities,
         output_path=str(output_path),
+    )
+
+
+# ---------------------------------------------------------------------------
+# PDF (non-scanned) review + redaction
+# ---------------------------------------------------------------------------
+
+
+def _extract_pdf_document(source: str | Path) -> Any:
+    """Extract a PDF document, raising a clear error for scanned / empty PDFs."""
+    from openmed.multimodal import extract_pdf
+
+    document = extract_pdf(source)
+    if not document.text.strip():
+        raise ValueError(PDF_SCANNED_HINT)
+    return document
+
+
+def run_pdf_review(
+    upload_path: str | Path,
+    method: str,
+    custom_recognizer: Any | None = None,
+    surrogate_vault: Any | None = None,
+) -> ReviewView:
+    if method not in DEIDENTIFICATION_METHODS:
+        raise ValueError(
+            f"Unsupported method {method!r}; choose one of {DEIDENTIFICATION_METHODS}."
+        )
+    source = Path(upload_path)
+    if source.suffix.lower() != ".pdf":
+        raise ValueError("Only .pdf uploads are supported.")
+    document = _extract_pdf_document(source)
+    return run_review(
+        document.text,
+        method,
+        custom_recognizer=custom_recognizer,
+        surrogate_vault=surrogate_vault,
+    )
+
+
+def _import_pymupdf() -> Any:
+    import importlib
+
+    return importlib.import_module("pymupdf")
+
+
+def _write_redacted_pdf(
+    source: str | Path,
+    output_path: str | Path,
+    rectangles: Sequence[Any],
+) -> None:
+    """Draw black boxes over the given (page, bbox) rectangles and strip the
+    underlying text layer using PyMuPDF redaction annotations."""
+    pymupdf = _import_pymupdf()
+    doc = pymupdf.open(source)
+    try:
+        for rectangle in rectangles:
+            page_index = int(rectangle.page)
+            if page_index < 0 or page_index >= len(doc):
+                continue
+            page = doc[page_index]
+            page.add_redact_annot(
+                pymupdf.Rect(*rectangle.bbox),
+                fill=(0, 0, 0),
+                cross_out=False,
+            )
+        for page in doc:
+            page.apply_redactions()
+        doc.save(output_path)
+    finally:
+        doc.close()
+
+
+def _verify_pdf_fidelity(
+    source: str | Path,
+    output_path: str | Path,
+    rectangles: Sequence[Any],
+) -> dict:
+    """Fail-closed fidelity check using PyMuPDF directly (pdfplumber cannot
+    parse PyMuPDF redaction paths as rects, so the openmed verifier would
+    misreport visible boxes)."""
+    pymupdf = _import_pymupdf()
+    source_doc = pymupdf.open(source)
+    output_doc = pymupdf.open(output_path)
+    results: list[dict[str, Any]] = []
+    try:
+        for rectangle in rectangles:
+            page_index = int(rectangle.page)
+            if page_index < 0 or page_index >= len(source_doc):
+                continue
+            bbox = tuple(float(value) for value in rectangle.bbox)
+            rect = pymupdf.Rect(*bbox)
+            words = [
+                str(word[4]).strip()
+                for word in output_doc[page_index].get_text("words", clip=rect)
+                if str(word[4]).strip()
+            ]
+            src_crop = source_doc[page_index].get_pixmap(dpi=150, clip=rect)
+            out_crop = output_doc[page_index].get_pixmap(dpi=150, clip=rect)
+            pixels_changed = src_crop.samples != out_crop.samples
+            passed = not words and pixels_changed
+            results.append(
+                {
+                    "page": page_index,
+                    "bbox": list(bbox),
+                    "label": getattr(rectangle, "label", None),
+                    "residual_text_found": bool(words),
+                    "residual_word_count": len(words),
+                    "pixels_changed": pixels_changed,
+                    "passed": passed,
+                }
+            )
+    finally:
+        source_doc.close()
+        output_doc.close()
+    return {
+        "check": "pdf_redaction_fidelity",
+        "passed": bool(results) and all(result["passed"] for result in results),
+        "region_count": len(results),
+        "failing_region_count": sum(1 for result in results if not result["passed"]),
+        "regions": results,
+    }
+
+
+def apply_selected_pdf_redaction(
+    upload_path: str | Path,
+    method: str,
+    selected_spans: Sequence[Mapping[str, Any] | ReviewEntity],
+    custom_recognizer: Any | None = None,
+    surrogate_vault: Any | None = None,
+    review_entities: Sequence[ReviewEntity] | None = None,
+) -> SelectiveRedactionView:
+    if method not in DEIDENTIFICATION_METHODS:
+        raise ValueError(
+            f"Unsupported method {method!r}; choose one of {DEIDENTIFICATION_METHODS}."
+        )
+    source = Path(upload_path)
+    if source.suffix.lower() != ".pdf":
+        raise ValueError("Only .pdf uploads are supported.")
+
+    document = _extract_pdf_document(source)
+    selective = apply_selected_redaction(
+        document.text,
+        method,
+        selected_spans,
+        custom_recognizer=custom_recognizer,
+        surrogate_vault=surrogate_vault,
+        review_entities=review_entities,
+    )
+    out_dir = Path(tempfile.mkdtemp(prefix="openmed-deid-web-"))
+    output_path = out_dir / f"{source.stem}_redacted.pdf"
+    if not selective.applied_entities:
+        output_path.write_bytes(source.read_bytes())
+        fidelity: dict | None = None
+    else:
+        from openmed.multimodal import project_text_spans
+
+        rectangles = project_text_spans(document, selective.applied_entities)
+        try:
+            _write_redacted_pdf(source, output_path, rectangles)
+        except ImportError as exc:
+            raise ValueError(
+                'PDF redaction needs: pip install "pymupdf".'
+            ) from exc
+        fidelity = _verify_pdf_fidelity(source, output_path, rectangles)
+    return SelectiveRedactionView(
+        deidentified_text=selective.deidentified_text,
+        applied_entities=selective.applied_entities,
+        output_path=str(output_path),
+        fidelity=fidelity,
     )

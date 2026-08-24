@@ -31,4 +31,4 @@ export const METHODS: Method[] = [
   "format_preserve",
 ];
 
-export const ALLOWED_EXTS = new Set(["docx", "md", "markdown"]);
+export const ALLOWED_EXTS = new Set(["docx", "md", "markdown", "pdf"]);

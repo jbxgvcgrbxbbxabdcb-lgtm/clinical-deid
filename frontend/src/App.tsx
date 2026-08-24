@@ -74,6 +74,7 @@ export default function App() {
             fileLabel={flow.fileLabel}
             downloadHint={flow.downloadHint}
             downloadButtonLabel={flow.downloadButtonLabel}
+            fidelity={flow.fidelity}
             onDownload={flow.handleDownload}
             onAgain={() => flow.setStep(2)}
             onRestart={flow.handleRestart}

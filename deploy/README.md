@@ -45,10 +45,16 @@ Startup logs indicate the mode:
 
 | File | Role |
 | --- | --- |
-| `Dockerfile` | Install Python deps + `openmed`; non-root user; run uvicorn |
+| `Dockerfile` | CPU `torch` + `openmed[hf]` + PDF/DOCX 栈（`pymupdf`, `pdfplumber`）；无 OCR |
 | `entrypoint.sh` | Offline if cache present, otherwise allow Hub download |
 | `docker-compose.yml` | API on `127.0.0.1:7870`, bind-mounts `~/.cache/openmed` → `/app/.cache/openmed` |
 | `../.dockerignore` | At repo root (compose build context); excludes `frontend/` and caches |
+
+## PDF 支持
+
+- **有文本层的 PDF**：`POST /api/detect/pdf`，输出黑框脱敏 PDF + fidelity 校验。
+- **扫描件**：不支持（无 OCR）；API 返回明确错误提示。
+- 镜像内已包含 `pymupdf`；**不需要**重写 compose，但代码/依赖变更后请 `docker compose ... up --build` 重建。
 
 Example nginx snippet:
 

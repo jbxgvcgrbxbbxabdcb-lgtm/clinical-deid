@@ -13,7 +13,12 @@ dependencies = [
   "fastapi>=0.110",
   "uvicorn[standard]>=0.29",
   "python-multipart>=0.0.9",
-  "openmed[hf,service,multimodal]>=2.0",
+  # hf: transformers + hub for deidentify(); DOCX/PDF text extraction pinned
+  # explicitly (openmed multimodal ingesters lazy-import these; no OCR stack).
+  "openmed[hf]>=2.0",
+  "pdfplumber>=0.11",
+  "python-docx>=1.1",
+  "pymupdf>=1.28",
 ]
 
 [project.optional-dependencies]

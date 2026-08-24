@@ -1,6 +1,10 @@
 """Domain constants for Clinical De-identify."""
 
 MULTIMODAL_HINT = 'DOCX support needs: pip install "openmed[multimodal]".'
+PDF_SCANNED_HINT = (
+    "No selectable text layer was found in this PDF — it may be a scanned / "
+    "image-only document. Only non-scanned PDFs are supported for now."
+)
 DEIDENTIFICATION_METHODS = (
     "mask",
     "replace",

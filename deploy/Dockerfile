@@ -21,14 +21,13 @@ COPY backend ./backend
 COPY deploy/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Install torch+torchvision from the same CPU index. A follow-up force-reinstall
-# keeps them matched if `pip install .` pulls an incompatible PyPI torchvision.
+# Install CPU torch for transformers inference (no OCR / torchvision needed).
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
-        torch torchvision \
+        torch \
     && pip install --no-cache-dir . \
     && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
-        --force-reinstall --no-deps torch torchvision
+        --force-reinstall --no-deps torch
 
 # Hand ownership of the app tree to the non-root user
 RUN chown -R app:app /app

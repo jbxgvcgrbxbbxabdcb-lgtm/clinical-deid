@@ -10,6 +10,14 @@ FastAPI API only. Frontend is served separately (Vite in dev, nginx in prod).
 | Service | `services/` | Detect / refresh / apply |
 | De-id + Store | `deid/`, `store/` | openmed ops, rules, in-memory sessions |
 
+## API（节选）
+
+| Route | Input |
+| --- | --- |
+| `POST /api/detect/text` | 粘贴文本 |
+| `POST /api/detect/docx` | Word |
+| `POST /api/detect/pdf` | 有文本层的 PDF（非扫描件） |
+
 ## Run
 
 ```bash

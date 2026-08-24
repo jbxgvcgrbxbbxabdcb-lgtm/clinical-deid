@@ -852,6 +852,32 @@
     .download-card strong { font-size: 0.98rem; }
     .download-card p { margin: 0.2rem 0 0; font-size: 0.82rem; color: var(--muted); }
 
+    .fidelity-banner {
+      margin-top: 1rem;
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      font-size: 0.88rem;
+    }
+    .fidelity-banner strong { display: block; margin-bottom: 0.25rem; }
+    .fidelity-banner p { margin: 0; color: var(--muted); }
+    .fidelity-banner ul {
+      margin: 0.5rem 0 0;
+      padding-left: 1.1rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .fidelity-banner.ok {
+      border-color: rgba(74, 192, 128, 0.45);
+      background: rgba(74, 192, 128, 0.12);
+      color: var(--ok, #1f7a4d);
+    }
+    .fidelity-banner.fail {
+      border-color: rgba(224, 97, 97, 0.55);
+      background: rgba(224, 97, 97, 0.12);
+      color: var(--danger, #a33);
+    }
+
     .footer-note {
       margin-top: 2rem;
       text-align: center;

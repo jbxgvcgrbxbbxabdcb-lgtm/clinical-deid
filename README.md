@@ -3,6 +3,17 @@
 本地优先的临床笔记去标识工具：React 前端 + FastAPI 后端，底层使用
 [`openmed`](https://pypi.org/project/openmed/)（从 PyPI 安装）。
 
+支持输入：粘贴文本 / Markdown / Word（`.docx`）/ **PDF（非扫描件，需文本层）**。
+PDF 输出以黑色遮罩覆盖并物理移除文本层中的 PHI，并附 fidelity 泄漏校验。
+
+| 格式 | 支持 | 说明 |
+| --- | --- | --- |
+| 粘贴文本 / Markdown | ✅ | |
+| Word（`.docx`） | ✅ | |
+| PDF（有文本层） | ✅ | 黑框 + 文本层移除 + fidelity 校验 |
+| PDF（扫描件 / 纯图片） | ❌ | 无 OCR；上传后会提示需文本层 |
+| 中文文档 | ⚠️ | 默认英文 PII 模型；可用 force terms 强制脱敏 |
+
 **仅用于合成数据 — 请勿上传真实 PHI（受保护健康信息）。**
 
 ## 目录结构
@@ -30,6 +41,9 @@ uvicorn backend.app:app --host 127.0.0.1 --port 7870
 # → http://127.0.0.1:7870  （仅 API；前端用 Vite 或 nginx）
 ```
 
+依赖为精简版：`openmed[hf]` + `pdfplumber` / `python-docx` / `pymupdf`（无 OCR 栈）。
+模型权重在首次 detect 时下载到 `~/.cache/openmed`（约 550MB），不在 `.venv` 里。
+
 ### 2. 前端（另开终端）
 
 ```bash
@@ -44,6 +58,7 @@ cd frontend && npm install && npm run dev
 ```bash
 docker compose -f deploy/docker-compose.yml up --build
 # → http://127.0.0.1:7870  （仅 API，默认只绑定本机）
+# 更新代码后需 --build 重建镜像（依赖或 Dockerfile 变更时尤其如此）
 ```
 
 首次 detect 会加载 `OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1`（约 550MB）。模型缓存挂载到宿主机 `~/.cache/openmed`；若 Docker 访问不了 Hugging Face，可先在宿主机预下载：

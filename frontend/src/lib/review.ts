@@ -67,6 +67,7 @@ export function fileKind(name: string): string {
   const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
   if (ext === "md" || ext === "markdown") return "MD";
   if (ext === "docx") return "DOCX";
+  if (ext === "pdf") return "PDF";
   return (ext || "FILE").toUpperCase();
 }
 
@@ -76,9 +77,10 @@ export function fileExt(name: string): string {
 
 export function redactedDownloadName(sourceName: string): {
   stem: string;
-  textExt: ".md" | ".txt";
+  textExt: ".md" | ".txt" | ".pdf";
 } {
-  const stem = sourceName.replace(/\.(docx|md|markdown|txt)$/i, "");
+  const stem = sourceName.replace(/\.(docx|md|markdown|txt|pdf)$/i, "");
+  if (/\.pdf$/i.test(sourceName)) return { stem, textExt: ".pdf" };
   const textExt = /\.(md|markdown)$/i.test(sourceName) ? ".md" : ".txt";
   return { stem, textExt };
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   applyRedaction,
   detectDocx,
+  detectPdf,
   detectText,
   fetchSampleText,
   refreshReview,
@@ -16,6 +17,7 @@ import {
 import type {
   ApplyPayload,
   Entity,
+  Fidelity,
   InputMode,
   Method,
   ReviewPayload,
@@ -59,6 +61,7 @@ export function useDeidFlow() {
   );
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloadFilename, setDownloadFilename] = useState<string | null>(null);
+  const [fidelity, setFidelity] = useState<Fidelity | null>(null);
 
   const refreshTimer = useRef<number | null>(null);
   const skipMethodRefresh = useRef(false);
@@ -147,6 +150,17 @@ export function useDeidFlow() {
       await runDetectText(text, file.name);
       return;
     }
+    if (ext === "pdf") {
+      const data = await detectPdf({
+        file,
+        method,
+        force_terms: forceTerms,
+        protect_terms: protectTerms,
+      });
+      skipMethodRefresh.current = true;
+      ingestReview(data, true);
+      return;
+    }
     const data = await detectDocx({
       file,
       method,
@@ -198,7 +212,7 @@ export function useDeidFlow() {
   function acceptFile(file: File) {
     const ext = fileExt(file.name || "upload.docx");
     if (!ALLOWED_EXTS.has(ext)) {
-      showError("Only .docx and .md files are supported.");
+      showError("Only .docx, .md, and .pdf files are supported.");
       return;
     }
     setUploadedFile(file);
@@ -332,20 +346,38 @@ export function useDeidFlow() {
       );
       setDownloadUrl(data.download_url || null);
       setDownloadFilename(data.download_filename || null);
+      setFidelity(data.fidelity || null);
       const sourceName = data.filename || uploadedName || "note";
       const { stem, textExt } = redactedDownloadName(sourceName);
+      const isPdf = /\.pdf$/i.test(sourceName);
       if (data.download_url) {
-        setFileLabel(data.download_filename || `${stem}_redacted.docx`);
-        setDownloadHint("Redacted DOCX ready for download");
-        setDownloadButtonLabel("Download redacted DOCX");
+        setFileLabel(
+          data.download_filename || `${stem}_redacted${textExt}`,
+        );
+        if (isPdf) {
+          setDownloadHint(
+            "Redacted PDF ready for download" +
+              (data.fidelity && !data.fidelity.passed
+                ? " — fidelity check FAILED, review warnings"
+                : ""),
+          );
+          setDownloadButtonLabel("Download redacted PDF");
+        } else {
+          setDownloadHint("Redacted DOCX ready for download");
+          setDownloadButtonLabel("Download redacted DOCX");
+        }
       } else {
         setFileLabel(`${stem}_redacted${textExt}`);
         setDownloadHint(
           textExt === ".md"
             ? "Markdown session — download a .md of the redacted note"
-            : "Text session — download a .txt of the redacted note",
+            : textExt === ".pdf"
+              ? "PDF session — download a .pdf of the redacted note"
+              : "Text session — download a .txt of the redacted note",
         );
-        setDownloadButtonLabel("Download redacted text");
+        setDownloadButtonLabel(
+          textExt === ".pdf" ? "Download redacted PDF" : "Download redacted text",
+        );
       }
       setStep(3);
     } catch (err) {
@@ -383,6 +415,7 @@ export function useDeidFlow() {
     setActiveId(null);
     setDownloadUrl(null);
     setDownloadFilename(null);
+    setFidelity(null);
     setForceTerms([]);
     setProtectTerms([]);
     replacementOverridesRef.current.clear();
@@ -439,6 +472,7 @@ export function useDeidFlow() {
     fileLabel,
     downloadHint,
     downloadButtonLabel,
+    fidelity,
     acceptFile,
     handleDetect,
     handleSample,

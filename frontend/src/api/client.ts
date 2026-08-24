@@ -57,6 +57,21 @@ export async function detectDocx(opts: {
   return readJson<ReviewPayload>(res);
 }
 
+export async function detectPdf(opts: {
+  file: File;
+  method: Method;
+  force_terms: string[];
+  protect_terms: string[];
+}): Promise<ReviewPayload> {
+  const form = new FormData();
+  form.append("file", opts.file, opts.file.name);
+  form.append("method", opts.method);
+  form.append("force_terms", JSON.stringify(opts.force_terms));
+  form.append("protect_terms", JSON.stringify(opts.protect_terms));
+  const res = await fetch("/api/detect/pdf", { method: "POST", body: form });
+  return readJson<ReviewPayload>(res);
+}
+
 export async function refreshReview(opts: {
   session_id: string;
   method: Method;

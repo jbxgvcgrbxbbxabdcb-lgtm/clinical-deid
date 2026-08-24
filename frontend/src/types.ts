@@ -31,6 +31,24 @@ export interface ReviewPayload {
   error?: string;
 }
 
+export interface FidelityRegion {
+  page: number;
+  bbox: number[];
+  label?: string | null;
+  residual_text_found: boolean;
+  residual_word_count: number;
+  pixels_changed: boolean;
+  passed: boolean;
+}
+
+export interface Fidelity {
+  check: string;
+  passed: boolean;
+  region_count: number;
+  failing_region_count: number;
+  regions: FidelityRegion[];
+}
+
 export interface ApplyPayload {
   text?: string;
   original_text?: string;
@@ -39,6 +57,7 @@ export interface ApplyPayload {
   session_kind?: string;
   download_url?: string;
   download_filename?: string;
+  fidelity?: Fidelity;
   error?: string;
   status?: string;
 }

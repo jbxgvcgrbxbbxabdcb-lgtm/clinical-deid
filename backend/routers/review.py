@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, Form, UploadFile
@@ -68,6 +69,28 @@ async def detect_docx(
     return JSONResponse(data)
 
 
+@router.post("/detect/pdf")
+async def detect_pdf(
+    file: UploadFile = File(...),
+    method: str = Form("mask"),
+    force_terms: str = Form("[]"),
+    protect_terms: str = Form("[]"),
+) -> JSONResponse:
+    try:
+        force = deps.parse_terms_json(force_terms)
+        protect = deps.parse_terms_json(protect_terms)
+        data = review_service.detect_pdf(
+            file_bytes=await file.read(),
+            filename=file.filename or "upload.pdf",
+            method=method,
+            force_terms=force,
+            protect_terms=protect,
+        )
+    except (ServiceError, ValueError) as exc:
+        return _error(exc)
+    return JSONResponse(data)
+
+
 @router.post("/review/refresh")
 async def review_refresh(payload: dict[str, Any]) -> JSONResponse:
     try:
@@ -110,10 +133,15 @@ def download(token: str) -> FileResponse | JSONResponse:
             {"error": "Download expired or not found.", "kind": "error"},
             status_code=404,
         )
+    media_type = (
+        "application/pdf"
+        if Path(path).suffix.lower() == ".pdf"
+        else (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+    )
     return FileResponse(
         path,
-        media_type=(
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ),
+        media_type=media_type,
         filename=path.name,
     )

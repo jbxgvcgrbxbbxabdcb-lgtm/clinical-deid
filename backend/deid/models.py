@@ -34,3 +34,4 @@ class SelectiveRedactionView:
     deidentified_text: str
     applied_entities: list[ReviewEntity]
     output_path: str | None = None
+    fidelity: dict | None = None
