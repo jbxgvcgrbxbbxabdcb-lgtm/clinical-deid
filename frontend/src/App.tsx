@@ -47,6 +47,7 @@ export default function App() {
             protectTerms={flow.protectTerms}
             selectAccent={flow.selectAccent}
             busy={flow.busyApply}
+            busyRefresh={flow.busyRefresh}
             onConfMin={flow.onConfChange}
             onMethod={flow.setMethod}
             onToggle={flow.toggleEntity}

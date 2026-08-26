@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent, type KeyboardEvent } from "react";
+import { LimitationsCallout } from "@/components/LimitationsCallout";
 import { fileKind } from "@/lib/review";
 import type { InputMode } from "@/types";
 
@@ -57,6 +58,7 @@ export function StageUpload({
         </span>
       </div>
       <div className="panel-body">
+        <LimitationsCallout />
         <div className="input-tabs" role="tablist" aria-label="Input method">
           <button
             type="button"
@@ -167,7 +169,7 @@ export function StageUpload({
             disabled={!canScan || busy}
             onClick={onDetect}
           >
-            {busy ? "Detecting…" : "Detect entities"}
+            {busy ? "Detecting…（首次可能较慢）" : "Detect entities"}
           </button>
           <button
             type="button"

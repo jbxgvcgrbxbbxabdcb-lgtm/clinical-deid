@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { LimitationsCallout } from "@/components/LimitationsCallout";
 import { DocPreview } from "@/components/review/DocPreview";
 import { EntityPanel } from "@/components/review/EntityPanel";
 import { MethodBlock } from "@/components/review/MethodBlock";
@@ -18,6 +19,7 @@ interface StageReviewProps {
   protectTerms: string[];
   selectAccent: string | null;
   busy: boolean;
+  busyRefresh: boolean;
   onConfMin: (value: number) => void;
   onMethod: (method: Method) => void;
   onToggle: (id: string) => void;
@@ -49,6 +51,7 @@ export function StageReview({
   protectTerms,
   selectAccent,
   busy,
+  busyRefresh,
   onConfMin,
   onMethod,
   onToggle,
@@ -68,6 +71,7 @@ export function StageReview({
 }: StageReviewProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const blocked = busy || busyRefresh;
 
   const visibleCount = useMemo(
     () => entities.filter((e) => Number(e.confidence) >= confMin).length,
@@ -109,7 +113,13 @@ export function StageReview({
         </span>
       </div>
       <div className="panel-body">
-        <div className="review-grid">
+        <LimitationsCallout />
+        {busyRefresh ? (
+          <p className="refresh-banner" role="status">
+            正在按新规则 / 方法重新检测，请稍候…
+          </p>
+        ) : null}
+        <div className={`review-grid${busyRefresh ? " is-refreshing" : ""}`}>
           <DocPreview
             sourceText={sourceText}
             entities={entities}
@@ -160,11 +170,15 @@ export function StageReview({
             </button>
             <button
               type="button"
-              className={`btn-primary${busy ? " busy" : ""}`}
-              disabled={busy}
+              className={`btn-primary${blocked ? " busy" : ""}`}
+              disabled={blocked}
               onClick={onApply}
             >
-              {busy ? "Redacting…" : "Apply redaction"}
+              {busy
+                ? "Redacting…"
+                : busyRefresh
+                  ? "重新检测中…"
+                  : "Apply redaction"}
             </button>
           </div>
         </div>

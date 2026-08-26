@@ -43,8 +43,8 @@ export function RulesDock({
       </summary>
       <div className="rules-body">
         <p className="rules-note">
-          Session-only · synthetic terms only. Force / protect must not conflict.
-          Re-detect after changing rules.
+          仅当前会话有效 · 请只用合成词。必脱敏与勿脱敏不能有同一词。
+          增删规则后会自动重新检测，通常需等待数秒（模型加载），完成前请勿点「Apply」。
         </p>
         <div className="rules-grid">
           <div className="rule-col force">

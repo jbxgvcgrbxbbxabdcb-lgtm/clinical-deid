@@ -41,13 +41,14 @@ export function useDeidFlow() {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [confMin, setConfMin] = useState(0.7);
+  const [confMin, setConfMin] = useState(0.5);
   const [highConf, setHighConf] = useState(0.9);
   const [forceTerms, setForceTerms] = useState<string[]>([]);
   const [protectTerms, setProtectTerms] = useState<string[]>([]);
   const [selectAccent, setSelectAccent] = useState<string | null>(null);
   const [busyDetect, setBusyDetect] = useState(false);
   const [busyApply, setBusyApply] = useState(false);
+  const [busyRefresh, setBusyRefresh] = useState(false);
 
   const [originalText, setOriginalText] = useState("");
   const [outputText, setOutputText] = useState("");
@@ -221,6 +222,7 @@ export function useDeidFlow() {
 
   const refreshMethod = useCallback(async () => {
     if (!sessionId || step !== 2) return;
+    setBusyRefresh(true);
     try {
       const data = await refreshReview({
         session_id: sessionId,
@@ -232,6 +234,8 @@ export function useDeidFlow() {
       ingestReview(data, false);
     } catch (err) {
       showError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusyRefresh(false);
     }
   }, [forceTerms, ingestReview, method, protectTerms, sessionId, step]);
 
@@ -466,6 +470,7 @@ export function useDeidFlow() {
     selectAccent,
     busyDetect,
     busyApply,
+    busyRefresh,
     originalText,
     outputText,
     resultMeta,

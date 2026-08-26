@@ -11,6 +11,7 @@ from openmed import deidentify
 
 from backend.deid.constants import (
     DEIDENTIFICATION_METHODS,
+    DETECTION_CONFIDENCE_THRESHOLD,
     PDF_SCANNED_HINT,
     REPLACE_SEED,
 )
@@ -87,7 +88,10 @@ def deidentify_kwargs(
     custom_recognizer: Any | None = None,
     surrogate_vault: Any | None = None,
 ) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {"method": method}
+    kwargs: dict[str, Any] = {
+        "method": method,
+        "confidence_threshold": DETECTION_CONFIDENCE_THRESHOLD,
+    }
     if method in {"replace", "format_preserve"}:
         kwargs["consistent"] = True
         kwargs["seed"] = REPLACE_SEED
@@ -108,13 +112,26 @@ def run_review(
         raise ValueError(
             f"Unsupported method {method!r}; choose one of {DEIDENTIFICATION_METHODS}."
         )
+    from backend.deid.rules_detect import (
+        entities_from_custom_recognizer,
+        merge_entities_prefer_rules,
+    )
+    from backend.deid.script_policy import is_cjk_heavy_span
+
+    # Always run the model, drop its Chinese guesses, then re-attach CN via rules.
     result = deidentify(
         text,
         **deidentify_kwargs(method, custom_recognizer, surrogate_vault=surrogate_vault),
     )
+    model_entities = [
+        entity
+        for entity in serialize_review_entities(result.pii_entities)
+        if not is_cjk_heavy_span(entity.text)
+    ]
+    rule_entities = entities_from_custom_recognizer(text, method, custom_recognizer)
     return ReviewView(
         text=text,
-        entities=serialize_review_entities(result.pii_entities),
+        entities=merge_entities_prefer_rules(model_entities, rule_entities),
         method=method,
     )
 
@@ -132,11 +149,11 @@ def run_docx_review(
     source = Path(upload_path)
     if source.suffix.lower() != ".docx":
         raise ValueError("Only .docx uploads are supported (not legacy .doc).")
-    from openmed.multimodal import extract_docx
+    from backend.deid.docx_ooxml import load_enriched_docx
 
-    document = extract_docx(source)
+    enriched = load_enriched_docx(source)
     return run_review(
-        document.text,
+        enriched.text,
         method,
         custom_recognizer=custom_recognizer,
         surrogate_vault=surrogate_vault,
@@ -264,11 +281,17 @@ def apply_selected_docx_redaction(
     if source.suffix.lower() != ".docx":
         raise ValueError("Only .docx uploads are supported (not legacy .doc).")
 
-    from openmed.multimodal import extract_docx, write_redacted_docx
+    from openmed.multimodal import write_redacted_docx
 
-    document = extract_docx(source)
+    from backend.deid.docx_ooxml import (
+        apply_textbox_redactions,
+        load_enriched_docx,
+        partition_docx_spans,
+    )
+
+    enriched = load_enriched_docx(source)
     selective = apply_selected_redaction(
-        document.text,
+        enriched.text,
         method,
         selected_spans,
         custom_recognizer=custom_recognizer,
@@ -277,6 +300,9 @@ def apply_selected_docx_redaction(
     )
     out_dir = Path(tempfile.mkdtemp(prefix="openmed-deid-web-"))
     output_path = out_dir / f"{source.stem}_redacted.docx"
+    body_spans, box_spans = partition_docx_spans(
+        enriched, selective.applied_entities
+    )
     span_payload = [
         {
             "start": entity.start,
@@ -285,12 +311,19 @@ def apply_selected_docx_redaction(
             "text": entity.text,
             "redacted_text": entity.replacement,
         }
-        for entity in selective.applied_entities
+        for entity in body_spans
     ]
     if span_payload:
         write_redacted_docx(source, output_path, span_payload)
     else:
         output_path.write_bytes(source.read_bytes())
+    if box_spans:
+        apply_textbox_redactions(
+            output_path,
+            output_path,
+            enriched.textboxes,
+            box_spans,
+        )
     return SelectiveRedactionView(
         deidentified_text=selective.deidentified_text,
         applied_entities=selective.applied_entities,

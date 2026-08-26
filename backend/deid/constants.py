@@ -15,7 +15,9 @@ DEIDENTIFICATION_METHODS = (
 )
 FORCE_DENY_LABEL = "OTHER"
 HIGH_CONFIDENCE_THRESHOLD = 0.9
-DEFAULT_CONFIDENCE_FILTER = 0.7
+# openmed default is 0.7; slightly lower so borderline emails / orgs surface in review.
+DETECTION_CONFIDENCE_THRESHOLD = 0.5
+DEFAULT_CONFIDENCE_FILTER = 0.5
 REPLACE_SEED = 7
 # Demo-only HMAC material for in-memory SurrogateVault (never log).
 REPLACE_VAULT_SECRET = b"openmed-clinical-deid-demo-vault-v1"
