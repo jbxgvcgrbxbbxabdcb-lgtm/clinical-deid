@@ -21,6 +21,11 @@ from backend.deid.models import (
     SelectiveRedactionView,
 )
 
+# Long PDFs (hundreds of pages) OOM Docker CPU inference when scored in one
+# shot; slice the model pass and keep offsets relative to the full text.
+_MODEL_CHUNK_CHARS = 12_000
+_MODEL_CHUNK_OVERLAP = 200
+
 
 def make_session_vault() -> Any:
     from openmed import SurrogateVault
@@ -102,6 +107,78 @@ def deidentify_kwargs(
     return kwargs
 
 
+def _iter_model_chunks(text: str) -> list[tuple[int, str]]:
+    """Yield (absolute_start, chunk) slices for bounded NER memory use."""
+    if len(text) <= _MODEL_CHUNK_CHARS:
+        return [(0, text)]
+    chunks: list[tuple[int, str]] = []
+    start = 0
+    length = len(text)
+    while start < length:
+        end = min(start + _MODEL_CHUNK_CHARS, length)
+        if end < length:
+            window = text[start:end]
+            break_at = window.rfind("\n")
+            if break_at >= _MODEL_CHUNK_CHARS // 2:
+                end = start + break_at + 1
+        chunks.append((start, text[start:end]))
+        if end >= length:
+            break
+        start = max(0, end - _MODEL_CHUNK_OVERLAP)
+    return chunks
+
+
+def _detect_model_entities(
+    text: str,
+    method: str,
+    custom_recognizer: Any | None = None,
+    surrogate_vault: Any | None = None,
+) -> list[ReviewEntity]:
+    """Run openmed NER, optionally in chunks; drop CJK-heavy model guesses."""
+    from openmed import ModelLoader
+
+    from backend.deid.script_policy import is_cjk_heavy_span
+
+    kwargs = deidentify_kwargs(method, custom_recognizer, surrogate_vault=surrogate_vault)
+    # Reuse one loader/pipeline across chunks — recreating per chunk doubles RSS.
+    kwargs["loader"] = ModelLoader()
+    found: list[ReviewEntity] = []
+    seen: set[tuple[int, int, str]] = set()
+    for offset, chunk in _iter_model_chunks(text):
+        result = deidentify(chunk, **kwargs)
+        for entity in serialize_review_entities(result.pii_entities):
+            if is_cjk_heavy_span(entity.text):
+                continue
+            abs_start = entity.start + offset
+            abs_end = entity.end + offset
+            # Prefer the earlier chunk for spans that fall in the overlap.
+            if offset > 0 and entity.start < _MODEL_CHUNK_OVERLAP:
+                continue
+            key = (abs_start, abs_end, entity.label)
+            if key in seen:
+                continue
+            seen.add(key)
+            found.append(
+                ReviewEntity(
+                    id=f"e{len(found)}",
+                    label=entity.label,
+                    text=entity.text,
+                    start=abs_start,
+                    end=abs_end,
+                    confidence=entity.confidence,
+                    replacement=entity.replacement,
+                )
+            )
+        del result
+        try:
+            import gc
+
+            gc.collect()
+        except Exception:  # noqa: BLE001
+            pass
+    return found
+
+
 def run_review(
     text: str,
     method: str,
@@ -116,18 +193,19 @@ def run_review(
         entities_from_custom_recognizer,
         merge_entities_prefer_rules,
     )
-    from backend.deid.script_policy import is_cjk_heavy_span
+    from backend.deid.script_policy import is_chinese_dominant
 
-    # Always run the model, drop its Chinese guesses, then re-attach CN via rules.
-    result = deidentify(
-        text,
-        **deidentify_kwargs(method, custom_recognizer, surrogate_vault=surrogate_vault),
-    )
-    model_entities = [
-        entity
-        for entity in serialize_review_entities(result.pii_entities)
-        if not is_cjk_heavy_span(entity.text)
-    ]
+    # Chinese-first notes: EN NER is untrusted on CJK and OOMs on long PDFs.
+    # Match product policy — rules (+ 必脱敏) own Chinese; skip the model.
+    if is_chinese_dominant(text):
+        model_entities: list[ReviewEntity] = []
+    else:
+        model_entities = _detect_model_entities(
+            text,
+            method,
+            custom_recognizer=custom_recognizer,
+            surrogate_vault=surrogate_vault,
+        )
     rule_entities = entities_from_custom_recognizer(text, method, custom_recognizer)
     return ReviewView(
         text=text,
@@ -254,11 +332,12 @@ def apply_selected_redaction(
         if len(applied) == len(selected_keys):
             return _rebuild_with_entities(text, applied)
 
-    result = deidentify(
+    review = _detect_model_entities(
         text,
-        **deidentify_kwargs(method, custom_recognizer, surrogate_vault=surrogate_vault),
+        method,
+        custom_recognizer=custom_recognizer,
+        surrogate_vault=surrogate_vault,
     )
-    review = serialize_review_entities(result.pii_entities)
     applied = [
         entity for entity in review if (entity.start, entity.end) in selected_keys
     ]

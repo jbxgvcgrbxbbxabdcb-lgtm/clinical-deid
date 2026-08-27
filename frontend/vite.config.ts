@@ -16,6 +16,10 @@ export default defineConfig({
       "/api": {
         target: "http://127.0.0.1:7870",
         changeOrigin: true,
+        // Large PDF detect can take several minutes; default proxy idle
+        // timeouts would otherwise abort with an empty body.
+        timeout: 600_000,
+        proxyTimeout: 600_000,
       },
     },
   },

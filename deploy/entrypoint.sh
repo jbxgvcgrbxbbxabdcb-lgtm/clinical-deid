@@ -2,6 +2,9 @@
 # Prefer a warm openmed/HF cache; otherwise allow Hub download on first detect.
 set -eu
 
+# Prefer /app (bind-mounted or image COPY) over site-packages install.
+export PYTHONPATH="/app${PYTHONPATH:+:$PYTHONPATH}"
+
 CACHE="${HF_HOME:-/app/.cache/openmed}"
 # The cache is pre-seeded with `hf download --cache-dir ~/.cache/openmed`,
 # which lays out models--OpenMed/... directly under that root (HF_HUB_CACHE

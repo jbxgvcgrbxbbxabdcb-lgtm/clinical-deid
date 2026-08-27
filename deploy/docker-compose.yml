@@ -8,9 +8,23 @@ services:
       - "127.0.0.1:7870:7870"
     environment:
       HF_TOKEN: ${HF_TOKEN:-}
+      # Prefer the bind-mounted /app/backend over the image's site-packages copy
+      # so local ops fixes (chunked NER, validation patch) actually load.
+      PYTHONPATH: /app
       # openmed stores verified snapshots here (HF hub layout).
       # Must match HF_HOME in the Dockerfile and the volume mount target below.
       HF_HOME: /app/.cache/openmed
+      # Cap BLAS/torch worker arenas. With many CPUs, unrestricted OpenMP
+      # can multiply RSS past 12 GB even though host inference peaks ~3 GB.
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      VECLIB_MAXIMUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+      TORCH_NUM_THREADS: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      # glibc malloc arenas otherwise balloon under threaded native code.
+      MALLOC_ARENA_MAX: "2"
     volumes:
       # Persist / share the model cache with the host.
       # Pre-seed when Docker cannot reach Hugging Face:
@@ -18,4 +32,11 @@ services:
       #     --cache-dir ~/.cache/openmed
       # :cached speeds up the many-small-files HF cache on macOS.
       - ${HOME}/.cache/openmed:/app/.cache/openmed:cached
+      # Live-mount app code so ops fixes (chunked NER, validation patch)
+      # apply without a full image rebuild during local Docker runs.
+      - ../backend:/app/backend
+    # Host peak ~3 GB; Docker still needs headroom. Desktop Memory ≥ 8 GB.
+    mem_limit: 8g
+    mem_reservation: 2g
+    shm_size: 1g
     restart: unless-stopped

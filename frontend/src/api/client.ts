@@ -1,7 +1,22 @@
 import type { ApplyPayload, Method, ReviewPayload } from "@/types";
 
 async function readJson<T>(res: Response): Promise<T> {
-  const data = (await res.json()) as T & { error?: string; status?: string };
+  const raw = await res.text();
+  if (!raw.trim()) {
+    throw new Error(
+      res.ok
+        ? "Server closed the connection with an empty response (often OOM on large PDFs). Check Docker memory (≥ 8 GB) and container logs for exit 137."
+        : `Request failed (${res.status}) with an empty response.`,
+    );
+  }
+  let data: T & { error?: string; status?: string };
+  try {
+    data = JSON.parse(raw) as T & { error?: string; status?: string };
+  } catch {
+    throw new Error(
+      `Server returned non-JSON (${res.status}). The API may have crashed mid-request — check Docker logs (exit 137 = out of memory).`,
+    );
+  }
   if (!res.ok) {
     throw new Error(
       data.error || data.status || `Request failed (${res.status})`,

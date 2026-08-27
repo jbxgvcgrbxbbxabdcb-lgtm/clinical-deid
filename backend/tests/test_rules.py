@@ -26,6 +26,29 @@ def test_builtin_patterns_present_without_user_terms() -> None:
     assert "email" in labels
     assert "company_name" in labels
     assert "street_address" in labels
+    assert "date" in labels
+
+
+def test_chinese_date_rules_catch_common_forms() -> None:
+    config = build_custom_recognizer([], [])
+    assert config is not None
+    text = (
+        "方案日期 2023 年 12 月 14 日；修订于2022年3月7日。"
+        "随访安排在 3 月 15 日。另见 2019/06/15 与 2020-01-02。"
+    )
+    date_hits = [span for label, span in _matches(config, text) if label == "date"]
+    assert any("2023 年 12 月 14 日" in span for span in date_hits)
+    assert any("2022年3月7日" in span for span in date_hits)
+    assert any("3 月 15 日" in span for span in date_hits)
+    assert "2019/06/15" in date_hits
+    assert "2020-01-02" in date_hits
+
+
+def test_chinese_date_rules_reject_implausible_numeric() -> None:
+    config = build_custom_recognizer([], [])
+    assert config is not None
+    matched = _matches(config, "版本号片段 2020.38.15 不是日期")
+    assert not any(label == "date" for label, _ in matched)
 
 
 def test_builtin_patterns_catch_previous_misses() -> None:

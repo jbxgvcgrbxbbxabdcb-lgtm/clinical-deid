@@ -47,14 +47,23 @@ Startup logs indicate the mode:
 | --- | --- |
 | `Dockerfile` | CPU `torch` + `openmed[hf]` + PDF/DOCX 栈（`pymupdf`, `pdfplumber`）；无 OCR |
 | `entrypoint.sh` | Offline if cache present, otherwise allow Hub download |
-| `docker-compose.yml` | API on `127.0.0.1:7870`, bind-mounts `~/.cache/openmed` → `/app/.cache/openmed` |
+| `docker-compose.yml` | API on `127.0.0.1:7870`, bind-mounts model cache, `mem_limit: 8g`, torch/OpenMP thread caps |
 | `../.dockerignore` | At repo root (compose build context); excludes `frontend/` and caches |
+
+## Memory (large PDFs)
+
+Hundreds-of-pages clinical PDFs expand to hundreds of thousands of characters of
+NER work. On the host, peak RSS for a sample 283-page protocol is about **3 GB**;
+in Docker unrestricted OpenMP/torch thread arenas can balloon past **12 GB** and
+OOM-kill the container (`exit 137`). Compose caps those threads (`OMP_NUM_THREADS=1`,
+etc.) and sets `mem_limit: 8g`. Docker Desktop Memory should still be ≥ 8 GB.
 
 ## PDF 支持
 
 - **有文本层的 PDF**：`POST /api/detect/pdf`，输出黑框脱敏 PDF + fidelity 校验。
 - **扫描件**：不支持（无 OCR）；API 返回明确错误提示。
 - 镜像内已包含 `pymupdf`；**不需要**重写 compose，但代码/依赖变更后请 `docker compose ... up --build` 重建。
+- nginx 反代大 PDF 时请加长超时，例如 `proxy_read_timeout 600s;`。
 
 Example nginx snippet:
 
@@ -68,6 +77,9 @@ server {
     proxy_pass http://127.0.0.1:7870;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_read_timeout 600s;
+    proxy_send_timeout 600s;
+    client_max_body_size 50m;
   }
 
   location / {

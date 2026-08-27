@@ -1,4 +1,4 @@
-"""Model runs on all notes; CJK model spans are dropped; rules re-add Chinese PII."""
+"""Chinese-dominant notes skip the EN model; rules own CJK (+ shared patterns)."""
 
 from __future__ import annotations
 
@@ -28,6 +28,22 @@ def test_chinese_spans_come_from_rules_not_model_labels() -> None:
     for label, span in labels_and_texts:
         if is_cjk_heavy_span(span):
             assert label in {"company_name", "street_address", "email", "OTHER"}
+
+
+def test_chinese_dominant_skips_model_loader(monkeypatch) -> None:
+    """Long CN notes must not invoke openmed NER (avoids Docker OOM)."""
+    calls: list[str] = []
+
+    def boom(*_a, **_k):  # pragma: no cover - should never run
+        calls.append("deidentify")
+        raise AssertionError("model should be skipped for Chinese-dominant text")
+
+    monkeypatch.setattr("backend.deid.ops.deidentify", boom)
+    text = "患者就职于某某医疗科技有限公司，住址：北京市朝阳区建国路88号。" * 50
+    assert is_chinese_dominant(text)
+    view = run_review(text, "mask", custom_recognizer=resolve_custom_recognizer())
+    assert calls == []
+    assert any("有限公司" in e.text for e in view.entities)
 
 
 def test_english_review_keeps_latin_model_hits() -> None:

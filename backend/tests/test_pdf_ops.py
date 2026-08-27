@@ -34,6 +34,21 @@ def _make_scanned_pdf(path: Path) -> Path:
     return path
 
 
+def _make_toc_pdf(path: Path) -> Path:
+    """Create a PDF whose extracted text includes long TOC dot leaders."""
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text(
+        (72, 100),
+        f"Table of Contents  {'.' * 136}  12",
+        fontsize=11,
+    )
+    page.insert_text((72, 120), "Patient John Doe, MRN 123456.", fontsize=11)
+    doc.save(path)
+    doc.close()
+    return path
+
+
 @pytest.fixture()
 def text_pdf(tmp_path: Path) -> Path:
     return _make_text_pdf(tmp_path / "note.pdf")
@@ -64,6 +79,26 @@ def test_run_pdf_review_rejects_scanned(scanned_pdf: Path) -> None:
     assert PDF_SCANNED_HINT in str(excinfo.value) or "text layer" in str(
         excinfo.value
     )
+
+
+def test_run_pdf_review_accepts_toc_dot_leaders(tmp_path: Path) -> None:
+    toc_pdf = _make_toc_pdf(tmp_path / "protocol.pdf")
+    view = run_pdf_review(toc_pdf, "mask")
+    assert "John" in view.text
+    assert len(view.entities) > 0
+
+
+def test_iter_model_chunks_covers_full_text() -> None:
+    from backend.deid.ops import _MODEL_CHUNK_CHARS, _iter_model_chunks
+
+    text = ("Patient John Doe.\n" * 2000) + "END"
+    chunks = _iter_model_chunks(text)
+    assert len(chunks) > 1
+    assert all(len(chunk) <= _MODEL_CHUNK_CHARS for _, chunk in chunks)
+    # First chunk starts at 0; reconstructed coverage reaches the end.
+    assert chunks[0][0] == 0
+    last_start, last_chunk = chunks[-1]
+    assert last_start + len(last_chunk) == len(text)
 
 
 def test_apply_selected_pdf_redaction_writes_black_box_and_strips_text(

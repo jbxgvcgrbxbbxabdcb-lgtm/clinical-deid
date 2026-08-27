@@ -73,6 +73,36 @@ BUILTIN_DENY_PATTERNS: tuple[dict[str, str], ...] = (
         ),
         "label": "street_address",
     },
+    {
+        # Chinese calendar dates: 2023年12月14日 / 2023 年 12 月 14 日 / 2023年12月
+        "pattern": (
+            r"(?<!\d)"
+            r"(?:19|20)\d{2}\s*年\s*"
+            r"(?:0?[1-9]|1[0-2])\s*月"
+            r"(?:\s*(?:0?[1-9]|[12]\d|3[01])\s*日)?"
+        ),
+        "label": "date",
+    },
+    {
+        # Month-day without year: 12月14日 / 3 月 7 日
+        "pattern": (
+            r"(?<![年\d])"
+            r"(?:0?[1-9]|1[0-2])\s*月\s*"
+            r"(?:0?[1-9]|[12]\d|3[01])\s*日"
+        ),
+        "label": "date",
+    },
+    {
+        # Numeric dates with a plausible month (avoids junk like 2020.38.15)
+        "pattern": (
+            r"(?<!\d)"
+            r"(?:19|20)\d{2}([-/.])"
+            r"(?:0?[1-9]|1[0-2])\1"
+            r"(?:0?[1-9]|[12]\d|3[01])"
+            r"(?!\d)"
+        ),
+        "label": "date",
+    },
 )
 
 
